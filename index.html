@@ -68,7 +68,7 @@ const $=s=>document.querySelector(s);let S,ui={view:'dash',week:mon(new Date()),
  • Dữ liệu cũ (không có bid) thuộc tòa mặc định B1; khoá lịch rảnh của B1 giữ nguyên định dạng cũ "ngày|shipper|ca", tòa khác thêm hậu tố "|idTòa".
  • Shipper chỉ được xếp trong tòa của mình (chk báo vi phạm nếu entry thuộc tòa khác). */
 const B0='B1',bOf=e=>e.bid||B0;
-function normS(){if(!S)return;S.avail=S.avail||{};S.schedule=S.schedule||[];S.weeks=S.weeks||{};S.log=S.log||[];S.adj=S.adj||[];S.payLock=S.payLock||{};S.payMod=S.payMod||{};S.payAdd=S.payAdd||[];S.notices=S.notices||[];S.evDone=S.evDone||{};S.autoDone=S.autoDone||{};S.regLog=S.regLog||{};S.regChg=S.regChg||{};S.settings=S.settings||{};{const st=S.settings;if(st.rate===undefined)st.rate=40000;if(st.rateB===undefined)st.rateB=0;if(st.late===undefined)st.late=24;if(st.gc===undefined)st.gc=2}
+function normS(){if(!S)return;S.avail=S.avail||{};S.schedule=S.schedule||[];S.weeks=S.weeks||{};S.log=S.log||[];S.adj=S.adj||[];S.payLock=S.payLock||{};S.payMod=S.payMod||{};S.payAdd=S.payAdd||[];S.notices=S.notices||[];S.evDone=S.evDone||{};S.autoDone=S.autoDone||{};S.regLog=S.regLog||{};S.regChg=S.regChg||{};S.pend=S.pend||{};S.settings=S.settings||{};{const st=S.settings;if(st.rate===undefined)st.rate=40000;if(st.rateB===undefined)st.rateB=0;if(st.late===undefined)st.late=24;if(st.gc===undefined)st.gc=2}
  if(!Array.isArray(S.buildings)||!S.buildings.length)S.buildings=[{id:B0,name:'Tòa nhà chính',address:'',contact:'',phone:'',note:'',active:true,createdAt:iso(new Date())}]}
 const bName=id=>(S.buildings.find(b=>b.id==id)||{name:'(đã xóa)'}).name;
 function CB(){const id=ui.bld||meta.bld,a=S.buildings.filter(b=>b.active);return(S.buildings.find(b=>b.id==id&&b.active)||a[0]||S.buildings[0]).id}
@@ -254,7 +254,7 @@ function grpWarn(w,en){const o=[];if(GC()===0)return o;
   if(ids.length>GC())o.push({l:'y',m:`🔀 ${DN[i]} (${fd(d)}): có ${ids.length} shipper khác nhau (mục tiêu tối đa ${GC()}): ${ids.map(nm).join(', ')}`});
   CLUS.forEach(c=>{const a=S.shifts.find(x=>x.active&&cn(x)==c[0]),b=S.shifts.find(x=>x.active&&cn(x)==c[1]);if(!a||!b)return;
    const pa=dp.filter(e=>e.shiftId==a.id).map(e=>e.shipperId),pb=dp.filter(e=>e.shiftId==b.id).map(e=>e.shipperId);
-   if(!pa.length||!pb.length||pa.some(x=>pb.includes(x)))return;
+   if(!pa.length||!pb.length||(S.settings.blk===0?pa.some(x=>pb.includes(x)):(pa.length==pb.length&&pa.every(x=>pb.includes(x)))))return;
    const ok=bShippers().some(s=>s.active&&av(d,s.id,a.id)!='U'&&av(d,s.id,b.id)!='U');
    o.push({l:'y',m:`🔀 ${DN[i]} (${fd(d)}): ca ${a.name} và ${b.name} chưa cùng một người (${pa.map(nm).join(', ')} / ${pb.map(nm).join(', ')}) — ${ok?'có shipper khả dụng cả 2 ca, có thể chỉnh tay hoặc bấm Tính lại':'không có shipper nào khả dụng cả 2 ca hoặc đã chạm giới hạn ca'}`})})});
  /* Backup: cùng quy tắc gom ca — cảnh báo khi >2 người backup/ngày hoặc backup của cụm không cùng một người */
@@ -300,8 +300,8 @@ function cands(d,shid,en,role){const ne={id:'~',date:d,shiftId:shid,role},all=S.
  const wc=id=>en.filter(e=>e.role=='primary'&&e.shipperId==id).length+xw(id,d),tc=id=>all.filter(e=>e.role==role&&e.shipperId==id).length;
  const list=bShippers().filter(s=>s.active&&av(d,s.id,shid)!='U'&&!chkP({...ne,shipperId:s.id},en.concat([{...ne,shipperId:s.id}])).length),gk=role=='primary'?grpKeys(d,shid,en,list):bkKeys(d,shid,en,list);
  return list
- .sort((a,b)=>{const pf=x=>av(d,x.id,shid)=='P'?0:1,un=x=>wc(x.id)<x.weeklyTarget?0:1;
-  const k=role=='primary'?(pf(a)-pf(b))||cmpK(gk[a.id],gk[b.id])||(wc(a.id)-wc(b.id))||(un(a)-un(b))||(tc(a.id)-tc(b.id)):(pf(b)-pf(a))||cmpK(gk[a.id],gk[b.id])||(tc(a.id)-tc(b.id))||(wc(a.id)-wc(b.id)); // backup: người KHÔNG ⭐ làm backup trước
+ .sort((a,b)=>{const pf=x=>av(d,x.id,shid)=='P'?0:1,vf=x=>x.vip?0:1,un=x=>wc(x.id)<x.weeklyTarget?0:1;
+  const k=role=='primary'?(pf(a)-pf(b))||(vf(a)-vf(b))||cmpK(gk[a.id],gk[b.id])||(wc(a.id)-wc(b.id))||(un(a)-un(b))||(tc(a.id)-tc(b.id)):(pf(b)-pf(a))||(vf(b)-vf(a))||cmpK(gk[a.id],gk[b.id])||(tc(a.id)-tc(b.id))||(wc(a.id)-wc(b.id)); // backup: người KHÔNG ⭐ làm backup trước
   return k||a.name.localeCompare(b.name,'vi')||(a.id<b.id?-1:1)})}
 function addEntry(d,shid,sid,role,extra){const t=new Date().toISOString();const e={id:uid('E'),bid:CB(),date:d,shiftId:shid,shipperId:sid,role,override:false,overrideReason:'',createdAt:t,updatedAt:t,...extra};S.schedule.push(e);return e}
 const GC=()=>S.settings.gc==null?2:S.settings.gc,bcOf=sh=>sh.backupCount==null?1:sh.backupCount;
@@ -314,10 +314,20 @@ function runScheduler(w,mode){ // mode: 'auto' (xếp lại toàn tuần) | 'rec
  all.forEach(e=>{if(e.override||(mode=='recalc'&&!stale(e)&&!chkP(e,kept.concat([e])).length))kept.push(e)});
  S.schedule=S.schedule.filter(e=>!all.includes(e)||kept.includes(e));
  const slots=[];weekDates(w).forEach(d=>activeShifts().forEach(sh=>slots.push({d,sh})));
- for(;;){const en=weekEntries(w);let best=null; // ưu tiên slot ít ứng viên nhất (most-constrained-first) để tối đa coverage
-  slots.forEach(s=>{if(!slotInfo(s.d,s.sh,en).miss)return;const c=cands(s.d,s.sh.id,en,'primary');if(!c.length)return;const hp=av(s.d,c[0].id,s.sh.id)=='P'?0:1; // ca có người ⭐ Preferred được xếp trước
-   if(!best||hp<best.hp||(hp==best.hp&&c.length<best.c.length))best={s,c,hp}});
-  if(!best)break;addEntry(best.s.d,best.s.sh.id,best.c[0].id,'primary')}
+  // Đơn vị xếp: 1 BUỔI (2 ca liền nhau) hoặc 1 ca lẻ. Bật "Xếp theo buổi": người nào nhận buổi thì nhận CẢ 2 ca (1 người làm cả buổi, hoặc 2 người cùng làm cả 2 ca) — không bao giờ chia mỗi người một ca.
+  const blk=S.settings.blk!==0,pairs=[],seen=new Set();
+  activeShifts().forEach(sh=>{if(seen.has(sh.id))return;seen.add(sh.id);const p=blk?partnerShift(sh.id):null;if(p&&!seen.has(p.id)){seen.add(p.id);pairs.push([sh,p])}else pairs.push([sh])});
+  const units=[];weekDates(w).forEach(d=>pairs.forEach(shs=>units.push({d,shs})));
+  const blockCands=(d,a,b,en)=>cands(d,a.id,en,'primary').filter(x=>{const ea={id:'~',bid:CB(),date:d,shiftId:a.id,role:'primary',shipperId:x.id},eb={...ea,shiftId:b.id};return av(d,x.id,b.id)!='U'&&!chkP(eb,en.concat([ea,eb])).length});
+  for(;;){const en=weekEntries(w);let best=null; // ưu tiên đơn vị ít ứng viên nhất (most-constrained-first) để tối đa coverage
+   units.forEach(u0=>{const ms=u0.shs.map(sh=>slotInfo(u0.d,sh,en).miss);let c,u=u0,k='single',ix=0;
+    if(u0.shs.length==2&&ms[0]>0&&ms[1]>0){k='block';c=blockCands(u0.d,u0.shs[0],u0.shs[1],en)}
+    else{ix=ms.findIndex(m=>m>0);if(ix<0)return;c=cands(u0.d,u0.shs[ix].id,en,'primary')}
+    if(!c.length)return;const hp=(av(u.d,c[0].id,u.shs[ix].id)=='P'||c[0].vip)?0:1; // ca có người ⭐ (ô ⭐ hoặc danh sách ưu tiên) được xếp trước
+    if(!best||hp<best.hp||(hp==best.hp&&c.length<best.c.length))best={u,c,hp,k,ix}});
+   if(!best)break;
+   if(best.k=='block')best.u.shs.forEach(sh=>addEntry(best.u.d,sh.id,best.c[0].id,'primary'));
+   else addEntry(best.u.d,best.u.shs[best.ix].id,best.c[0].id,'primary')}
  slots.forEach(s=>{const bc=bcOf(s.sh);for(let n=0;n<bc;n++){const en=weekEntries(w),x=slotInfo(s.d,s.sh,en);if(x.miss||x.b.length>=bc)break;const c=cands(s.d,s.sh.id,en,'backup')[0];if(!c)break;addEntry(s.d,s.sh.id,c.id,'backup')}});
 }
 function run(mode){const w=ui.week,st=wstat(w);
@@ -619,17 +629,17 @@ let pt,pbusy=false;
 const pubMark=()=>{if(!meta.cloud||!meta.code)return;clearTimeout(pt);pt=setTimeout(pubPush,2500)};
 const hrsTo=(d,sh,t)=>(new Date(d+'T'+((sh&&sh.deliveryStart)||'00:00')+':00')-t)/36e5;
 function inB(bid,fn){const o=ui.bld;ui.bld=bid;try{return fn()}finally{ui.bld=o}}
-async function pubPush(){if(!meta.cloud||!meta.code)return;try{const base=await pubBase(),t0=addD(mon(new Date()),-7),t1=addD(mon(new Date()),42),st={},en=[],bs=S.buildings.filter(b=>b.active),cut=evCut(),done={};
+async function pubPush(){if(!meta.cloud||!meta.code)return;if(!S.shifts.some(x=>x.active)||!S.shippers.some(s=>s.active))return;try{const base=await pubBase(),t0=addD(mon(new Date()),-7),t1=addD(mon(new Date()),42),st={},en=[],bs=S.buildings.filter(b=>b.active),cut=evCut(),done={};
  bs.forEach(b=>{for(let w=t0;w<=t1;w=addD(w,7))st[w+'|'+b.id]=wkSt(w,b.id)});
  S.schedule.forEach(e=>{if(e.date<t0||e.date>t1)return;if(wkSt(mon(e.date),bOf(e))!='DRAFT')en.push({id:e.id,b:bOf(e),d:e.date,c:e.shiftId,s:e.shipperId,r:e.role=='primary'?'p':'b'})});
  Object.keys(S.evDone).forEach(k=>{if(k>=cut)done[k]=S.evDone[k]});
- const snap={t:Date.now(),rt:pubInfo.rt||null,late:S.settings.late==null?24:S.settings.late,b:bs.map(b=>({id:b.id,n:b.name})),sh:S.shippers.filter(s=>s.active).map(s=>({id:s.id,n:s.name,b:sBid(s)})),c:S.shifts.filter(x=>x.active).map(x=>({id:x.id,n:x.name,a:x.deliveryStart,z:x.deliveryEnd,q:x.requiredShippers})),st,en,done};
+ const snap={t:Date.now(),rt:pubInfo.rt||null,late:S.settings.late==null?24:S.settings.late,frz:S.settings.frz===0?0:1,b:bs.map(b=>({id:b.id,n:b.name})),sh:S.shippers.filter(s=>s.active).map(s=>({id:s.id,n:s.name,b:sBid(s)})),c:S.shifts.filter(x=>x.active).map(x=>({id:x.id,n:x.name,a:x.deliveryStart,z:x.deliveryEnd,q:x.requiredShippers})),st,en,done};
  await fetch(base+'/snap.json',{method:'PUT',body:JSON.stringify(snap)})}catch(e){}}
 function procEv(k,ev,evs){const sid=ev.sid,s=S.shippers.find(x=>x.id==sid);if(!s)return'no:Không tìm thấy shipper';const t=ev.t||Date.now(),late=S.settings.late==null?24:S.settings.late,shn=id=>(S.shifts.find(x=>x.id==id)||{name:'?'}).name,fe=e=>`${s.name} · Ca ${shn(e.shiftId)} ${fd(e.date)}`,note=(text,urgent)=>S.notices.push({id:k,t,text,urgent:!!urgent,seen:0});
  if(ev.type=='reg'){const s0=S.shippers.filter(x=>x.active&&pk(x)==pk(s)&&(!ev.bids||!ev.bids.length||ev.bids.includes(sBid(x)))),sibs=s0.length?s0:[s],today=iso(new Date()),chg=[];
   Object.entries(ev.map||{}).forEach(([key,v])=>{const[d,shid]=key.split('|');if(!d||!shid||d<today)return;sibs.forEach(x=>{const kk=avk(d,x.id,shid,sBid(x)),cur=S.avail[kk],nv=v=='A'?(cur=='P'?'P':'A'):'U';if((cur||'U')!=nv){chg.push({d,shid,from:cur||'U',to:nv});S.regChg[kk]=t}S.avail[kk]=nv})});
-  sibs.forEach(x=>{S.regLog[ev.w+'|'+x.id]=t});const nA=Object.values(ev.map||{}).filter(v=>v=='A').length,rid='reg|'+sid+'|'+ev.w;S.notices=S.notices.filter(x=>x.id!=rid);
-  S.notices.push({id:rid,t,text:`✍️ ${s.name} đã đăng ký lịch tuần ${fd(ev.w||today)} — rảnh ${nA} ca · ${sibs.map(x=>bName(sBid(x))).join(', ')}${chg.length?` — ĐỔI ${chg.length} ô lịch rảnh (vd: ${chg.slice(0,4).map(c=>DN[(pd(c.d).getDay()+6)%7]+' '+shn(c.shid)+' '+({A:'✓',P:'⭐',U:'✕'})[c.from]+'→'+({A:'✓',P:'⭐',U:'✕'})[c.to]).join(', ')}${chg.length>4?'…':''})`:' — KHÔNG có ô nào đổi so với lịch rảnh đang có (shipper chọn giống lịch cũ)'}`,urgent:false,seen:0,go:{w:ev.w,b:sBid(sibs[0])}});return'ok'}
+  sibs.forEach(x=>{S.regLog[ev.w+'|'+x.id]=t});const nA=Object.values(ev.map||{}).filter(v=>v=='A').length,rid='reg|'+sid+'|'+ev.w;const ad={rel:[],got:[]};sibs.forEach(x=>{const a=adjustPub(x,ev.w);ad.rel.push(...a.rel);ad.got.push(...a.got)});const adjTxt=(ad.rel.length?` — TỰ NHẢ ${ad.rel.length} ca (${ad.rel.slice(0,3).join(', ')})`:'')+(ad.got.length?` — TỰ NHẬN ${ad.got.length} ca trống (${ad.got.slice(0,3).join(', ')})`:'');S.notices=S.notices.filter(x=>x.id!=rid);
+  S.notices.push({id:rid,t,text:`✍️ ${s.name} đã đăng ký lịch tuần ${fd(ev.w||today)} — rảnh ${nA} ca · ${sibs.map(x=>bName(sBid(x))).join(', ')}${chg.length?` — ĐỔI ${chg.length} ô lịch rảnh (vd: ${chg.slice(0,4).map(c=>DN[(pd(c.d).getDay()+6)%7]+' '+shn(c.shid)+' '+({A:'✓',P:'⭐',U:'✕'})[c.from]+'→'+({A:'✓',P:'⭐',U:'✕'})[c.to]).join(', ')}${chg.length>4?'…':''})`:' — KHÔNG có ô nào đổi so với lịch rảnh đang có (shipper chọn giống lịch cũ)'}${adjTxt}`,urgent:false,seen:0,go:{w:ev.w,b:sBid(sibs[0])}});return'ok'}
  if(ev.type=='leave'){const e=S.schedule.find(x=>x.id==ev.eid&&x.shipperId==sid);if(!e)return'no:Không còn ca này';const h=hrsTo(e.date,S.shifts.find(x=>x.id==e.shiftId),t),urg=h<late;S.schedule=S.schedule.filter(x=>x!==e);let msg='';
   if(e.role=='primary'){const bk=S.schedule.filter(x=>x.role=='backup'&&x.date==e.date&&x.shiftId==e.shiftId&&bOf(x)==bOf(e)).sort((a,b)=>a.createdAt<b.createdAt?-1:1)[0];if(bk){bk.role='primary';bk.updatedAt=new Date().toISOString();msg=` → ${nm(bk.shipperId)} (backup) lên làm chính`}else msg=' → CA ĐANG TRỐNG, chờ người nhận'}
   log('Shipper xin nghỉ: '+fe(e));note(`${urg?'🚨 NGHỈ GẤP (còn '+Math.max(0,Math.round(h))+'h): ':'🙋 Xin nghỉ: '}${fe(e)}${e.role=='backup'?' (backup)':msg}`,urg);return'ok'}
@@ -641,16 +651,46 @@ function procEv(k,ev,evs){const sid=ev.sid,s=S.shippers.find(x=>x.id==sid);if(!s
   return inB(bOf(e),()=>{const en=weekEntries(mon(e.date)).filter(x=>x!==e),e2={...e,shipperId:sid},v=chk(e2,en.concat([e2])).filter(m=>m!='Assign khi Unavailable');if(v.length)return'no:'+v.join(', ');
    const from=nm(e.shipperId);e.shipperId=sid;e.updatedAt=new Date().toISOString();log('Đổi ca: '+from+' → '+s.name);note(`🔁 Đổi ca: ${from} → ${s.name} · Ca ${shn(e.shiftId)} ${fd(e.date)}`,hrsTo(e.date,S.shifts.find(x=>x.id==e.shiftId),t)<late);return'ok'})}
  return'no:Loại yêu cầu không hợp lệ'}
+/* ===== 12b. QUY TẮC THỜI GIAN: trước thứ 2 của tuần làm việc shipper tự sửa (chỉ báo cho quản lý); từ thứ 2 mọi thay đổi chờ quản lý duyệt ===== */
+function evWeekStart(ev,evs){let d=null;
+ if(ev.type=='leave'){const e=S.schedule.find(x=>x.id==ev.eid);d=e&&e.date}
+ else if(ev.type=='take')d=ev.d;
+ else if(ev.type=='swapok'){const o=(evs&&evs[ev.ref])||(S.pend[ev.ref]&&S.pend[ev.ref].ev),e=o&&S.schedule.find(x=>x.id==o.eid);d=e&&e.date}
+ else if(ev.type=='reg')d=ev.w;
+ return d?new Date(mon(d)+'T00:00:00').getTime():null}
+const needAppr=(ev,evs)=>{if(S.settings.frz===0)return false;const ws=evWeekStart(ev,evs);return ws!=null&&(ev.t||Date.now())>=ws};
+function evTxt(ev){const s=S.shippers.find(x=>x.id==ev.sid);return (s?s.name:'?')+' · '+({leave:'xin nghỉ',take:'nhận ca trống',swapok:'nhận đổi ca',reg:'sửa đăng ký lịch rảnh'}[ev.type]||ev.type)+': '+(ev.x||'')}
+function relEntry(e){S.schedule=S.schedule.filter(x=>x!==e);let msg='';
+ if(e.role=='primary'){const bk=S.schedule.filter(x=>x.role=='backup'&&x.date==e.date&&x.shiftId==e.shiftId&&bOf(x)==bOf(e)).sort((a,b)=>a.createdAt<b.createdAt?-1:1)[0];if(bk){bk.role='primary';bk.updatedAt=new Date().toISOString();msg=nm(bk.shipperId)+' (backup) lên làm chính'}else msg='ca TRỐNG'}
+ return msg}
+function unitPairs(){const blk=S.settings.blk!==0,pairs=[],seen=new Set();activeShifts().forEach(sh=>{if(seen.has(sh.id))return;seen.add(sh.id);const p=blk?partnerShift(sh.id):null;if(p&&!seen.has(p.id)){seen.add(p.id);pairs.push([sh,p])}else pairs.push([sh])});return pairs}
+/* Sau khi lịch đã PUBLISHED: shipper lưu lại đăng ký → ca họ đánh dấu Bận được nhả (backup lên thay nếu có), ca trống phù hợp (theo buổi, không phá giới hạn) được tự nhận */
+function adjustPub(x,w){const bid=sBid(x),rel=[],got=[];if(wkSt(w,bid)!='PUBLISHED')return{rel,got};
+ inB(bid,()=>{weekEntries(w).filter(e=>e.shipperId==x.id&&!e.override&&av(e.date,x.id,e.shiftId)=='U').forEach(e=>{const sh=S.shifts.find(c=>c.id==e.shiftId);relEntry(e);rel.push(fd(e.date)+' '+(sh?sh.name:'?'))});
+  const today=iso(new Date());
+  weekDates(w).forEach(d=>{if(d<today)return;unitPairs().forEach(u=>{const en=weekEntries(w);
+   if(!u.every(sh=>slotInfo(d,sh,en).miss>0&&av(d,x.id,sh.id)!='U'&&!en.some(e=>e.date==d&&e.shiftId==sh.id&&e.shipperId==x.id)))return;
+   let cur=en.slice();for(const sh of u){const e={id:'~'+sh.id,bid,date:d,shiftId:sh.id,role:'primary',shipperId:x.id};if(chkP(e,cur.concat([e])).length)return;cur=cur.concat([e])}
+   u.forEach(sh=>addEntry(d,sh.id,x.id,'primary'));got.push(fd(d)+' '+u.map(sh=>sh.name).join('+'))})})});
+ return{rel,got}}
+const pendBar=()=>{const ks=Object.keys(S.pend);if(!ks.length)return'';return`<div class=card style="border-color:var(--er)"><b>⏳ Chờ bạn duyệt (${ks.length})</b><div class=sm>Tuần làm việc đã bắt đầu — thay đổi của shipper chỉ có hiệu lực khi bạn đồng ý.</div>${ks.sort().map(k=>`<div class="iss y" style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>${esc(S.pend[k].txt)}</span><span style="white-space:nowrap"><button class="b pr" style="padding:3px 10px" onclick="approveEv('${k}')">Duyệt</button> <button class="b dg" style="padding:3px 10px" onclick="rejectEv('${k}')">Từ chối</button></span></div>`).join('')}</div>`};
+function approveEv(k){const p=S.pend[k];if(!p)return;const res=procEv(k,p.ev,p.ref?{[p.ev.ref]:p.ref}:{});S.evDone[k]=res;delete S.pend[k];toast(res=='ok'?'Đã duyệt và cập nhật lịch':'Không áp dụng được: '+res.replace(/^no:/,''),res=='ok'?'':'er');commit()}
+function rejectEv(k){const p=S.pend[k];if(!p)return;const r=prompt('Lý do từ chối (không bắt buộc):','');if(r===null)return;S.evDone[k]='no:'+(r.trim()||'Quản lý từ chối');delete S.pend[k];commit()}
 let pubInfo={};
 async function pubSync(){if(!meta.cloud||!meta.code){pubInfo={t:Date.now(),n:0,err:'Chưa bật Đồng bộ đa thiết bị'};return}if(pbusy)return;pbusy=true;
  try{const base=await pubBase(),cut=evCut(),r=await fetch(base+'/ev.json?orderBy="$key"&startAt="'+cut+'"',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status+' (kiểm tra Rules Firebase)');const evs=(await r.json())||{};let ch=0;try{const rr=await fetch(base+'/snap/rt.json',{cache:'no-store'});if(rr.ok){const v=await rr.json();if(v)pubInfo.rt=v}}catch(e){}
-  for(const k of Object.keys(evs).sort()){if(S.evDone[k])continue;S.evDone[k]=procEv(k,evs[k],evs);ch++}
-  Object.keys(S.evDone).forEach(k=>{if(k<cut)delete S.evDone[k]});Object.keys(S.regLog).forEach(k=>{if(k.slice(0,10)<addD(mon(new Date()),-28))delete S.regLog[k]});Object.keys(S.regChg).forEach(k=>{if(S.regChg[k]<Date.now()-12096e5)delete S.regChg[k]});S.notices=S.notices.slice(-100);pubInfo={...pubInfo,t:Date.now(),n:ch,err:''};
+  for(const k of Object.keys(evs).sort()){if(S.evDone[k])continue;const ev=evs[k];
+   if(needAppr(ev,evs)){S.evDone[k]='wait';S.pend[k]={ev,ref:ev.ref&&evs[ev.ref]?evs[ev.ref]:null,txt:evTxt(ev)};S.notices.push({id:k,t:ev.t||Date.now(),text:'⏳ Chờ bạn duyệt: '+evTxt(ev),urgent:true,seen:0});ch++;continue}
+   S.evDone[k]=procEv(k,ev,evs);ch++}
+  Object.keys(S.evDone).forEach(k=>{if(k<cut)delete S.evDone[k]});Object.keys(S.pend).forEach(k=>{if(k<cut)delete S.pend[k]});Object.keys(S.regLog).forEach(k=>{if(k.slice(0,10)<addD(mon(new Date()),-28))delete S.regLog[k]});Object.keys(S.regChg).forEach(k=>{if(S.regChg[k]<Date.now()-12096e5)delete S.regChg[k]});S.notices=S.notices.slice(-100);pubInfo={...pubInfo,t:Date.now(),n:ch,err:''};
   if(ch){save();if(!/INPUT|SELECT|TEXTAREA/.test((document.activeElement||{}).tagName||''))render()}else pubMark()}catch(e){pubInfo={...pubInfo,t:Date.now(),n:0,err:String((e&&e.message)||'không kết nối được')}}
  pbusy=false}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pubSync()});
 async function pubCheckNow(){if(!meta.cloud||!meta.code)return toast('Hãy bật "Đồng bộ đa thiết bị" trước','er');await pubSync();render();toast(pubInfo.err?'Lỗi: '+pubInfo.err:`Đã kiểm tra — ${pubInfo.n} yêu cầu mới`,pubInfo.err?'er':'')}
 const apBadge=()=>pubInfo.rt?(Date.now()-pubInfo.rt<25*6e4?`<div class="iss g">🟢 Autopilot (máy chủ tự động) chạy lần cuối lúc ${new Date(pubInfo.rt).toLocaleTimeString('vi-VN')}</div>`:`<div class="iss y">🟠 Autopilot chưa chạy lại từ ${new Date(pubInfo.rt).toLocaleString('vi-VN')} — kiểm tra GitHub Actions</div>`):'<div class=sm>Autopilot: chưa bật — yêu cầu của shipper chỉ được xử lý khi file này đang mở.</div>';
+const setVip=(id,v)=>{const s=S.shippers.find(x=>x.id==id);if(!s)return;S.shippers.forEach(x=>{if(pk(x)==pk(s))x.vip=!!v});log('Danh sách ưu tiên: '+s.name+' = '+(v?'có':'không'));commit()};
+const vipCard=()=>{const seen=new Set(),L=S.shippers.filter(s=>s.active&&!seen.has(pk(s))&&seen.add(pk(s))).sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+ return`<div class=card><h3>⭐ Danh sách ưu tiên (chế độ ưu ái)</h3><p class=sm>Người được tick sẽ được <b>ưu tiên xếp làm ca chính</b> khi bấm Auto / tự động xếp lịch (vẫn tôn trọng ca Bận, Daily/Weekly Max, trùng ca). Khi làm backup thì xếp sau cùng. Người có tên ở nhiều tòa chỉ cần tick một lần. Khi bật "Xếp theo buổi", mỗi buổi (11h+12h, 18h+19h) do cùng một người, hoặc cùng hai người, làm cả 2 ca — không chia mỗi người một ca.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${L.map(s=>{const on=S.shippers.some(x=>pk(x)==pk(s)&&x.vip),bs=S.shippers.filter(x=>pk(x)==pk(s)&&x.active).map(x=>bName(sBid(x))).join(' · ');return`<label class=po style="cursor:pointer;font-size:14px;font-weight:600;color:var(--tx)"><input type=checkbox style="width:auto;margin:0 8px 0 0" ${on?'checked':''} onchange="setVip('${s.id}',this.checked)">⭐ ${esc(s.name)} <span class=sm>${esc(bs)}</span></label>`}).join('')||'<span class=sm>Chưa có shipper.</span>'}</div></div>`};
 const regCard=()=>{const ap=apBadge(),w=addD(mon(new Date()),7),seen=new Set(),L=S.shippers.filter(s=>s.active&&!seen.has(pk(s))&&seen.add(pk(s))),has=s=>S.shippers.some(x=>pk(x)==pk(s)&&S.regLog[w+'|'+x.id]),ok=L.filter(has),no=L.filter(s=>!has(s));
  return`<div class=card><h3>✍️ Shipper đăng ký — tuần ${fd(w)}</h3><div class=sm>Đã đăng ký (${ok.length}): ${ok.map(s=>esc(s.name)).join(', ')||'—'}</div><div class=sm style="margin-top:4px">Chưa đăng ký (${no.length}): ${no.map(s=>esc(s.name)).join(', ')||'—'}</div>${ap}<div class=acts style="margin-top:10px"><button class=b onclick="pubCheckNow()">🔄 Kiểm tra yêu cầu shipper ngay</button></div><p class=sm>${pubInfo.t?'Lần kiểm tra cuối trên máy này: '+new Date(pubInfo.t).toLocaleTimeString('vi-VN')+(pubInfo.err?' — <b style="color:var(--er)">LỖI: '+esc(pubInfo.err)+'</b>':' — '+pubInfo.n+' yêu cầu mới'):'Chưa kiểm tra lần nào trên máy này (tự kiểm tra mỗi 30 giây khi mở file).'} Lịch rảnh của shipper đã đăng ký xem ở mục <b>Lịch rảnh</b> (chọn đúng tòa và tuần).</p></div>`};
 const rc=(d,sid,cid)=>S.regChg[avk(d,sid,cid)]?' rg':'';
@@ -666,7 +706,7 @@ function spCopy(k){const u=$('#sp_u').value.trim();if(!u)return toast('Nhập đ
 
 /* ===== 13. TỰ ĐỘNG XẾP LỊCH TUẦN SAU: tới hạn đăng ký → (shipper chưa đăng ký thì giữ lịch rảnh tuần trước) → Auto → Publish nếu không có lỗi nghiêm trọng. Chạy khi file tổng đang mở. ===== */
 function carryAv(w,bid){S.shippers.filter(s=>s.active&&sBid(s)==bid).forEach(s=>{const ds=[...Array(7)].map((_,i)=>addD(w,i));if(ds.some(d=>S.shifts.some(c=>S.avail[avk(d,s.id,c.id,bid)])))return;ds.forEach((d,i)=>{const p0=addD(w,i-7);S.shifts.forEach(c=>{const v=S.avail[avk(p0,s.id,c.id,bid)];if(v)S.avail[avk(d,s.id,c.id,bid)]=v})})})}
-function autoRun(){if(!S||!S.settings||!S.settings.auto)return;const now=new Date(),dow=((now.getDay()+6)%7)+1,hr=now.getHours()+now.getMinutes()/60,adow=S.settings.adow||4,ahr=S.settings.ahr==null?20:S.settings.ahr;
+function autoRun(){if(!S||!S.settings||!S.settings.auto)return;const now=new Date(),dow=((now.getDay()+6)%7)+1,hr=now.getHours()+now.getMinutes()/60,adow=S.settings.adow||6,ahr=S.settings.ahr==null?0:S.settings.ahr;
  if(!(dow>adow||(dow==adow&&hr>=ahr)))return;const w=addD(mon(now),7);let ch=0;
  S.buildings.filter(b=>b.active).forEach(b=>{const k=w+'|'+b.id;if(S.autoDone[k])return;S.autoDone[k]=1;if(wkSt(w,b.id)!='DRAFT')return;
   inB(b.id,()=>{carryAv(w,b.id);runScheduler(w,'auto');const v=validateWeek(w);ch++;
@@ -678,14 +718,14 @@ setTimeout(autoRun,4000);setInterval(()=>{if(!document.hidden)autoRun()},60000);
 
 function vCfg(){const s=S.settings,n=(k,v,t)=>`<label>${k[1]}<input type=number value="${v??''}" onchange="setSet('${k[0]}',this.value===''?null:+this.value)"></label>`;
  const si=(id,k,v,t)=>`<input type="${t||'text'}" value="${esc(v)}" onchange="updShift('${id}','${k}',this.value)" style="margin:0;min-width:${t=='number'?60:80}px">`;
- return hdr('Cấu hình')+`<div class=card><h3>General</h3><div class=fg style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">${n(['wt','Weekly Target mặc định'],s.wt)}${n(['dm','Daily Max mặc định'],s.dm)}${n(['wm','Weekly Max mặc định (trống = Unlimited)'],s.wm)}<label>Cho phép Override<select onchange="setSet('allow',this.value=='1')"><option value=1 ${s.allow?'selected':''}>ON</option><option value=0 ${s.allow?'':'selected'}>OFF</option></select></label>${n(['gc','Gom ca: tối đa người/ngày (0 = tắt cảnh báo)'],s.gc)}${n(['rate','Đơn giá mỗi ca (đ)'],s.rate)}${n(['rateB','Đơn giá backup không đi (đ)'],s.rateB)}${n(['late','Mốc nghỉ gấp (giờ trước ca)'],s.late)}<label>Tự động xếp lịch tuần sau<select onchange="setSet('auto',+this.value)"><option value=0 ${s.auto?'':'selected'}>Tắt</option><option value=1 ${s.auto?'selected':''}>Bật</option></select></label><label>Hạn đăng ký (ngày)<select onchange="setSet('adow',+this.value)">${[1,2,3,4,5,6,7].map(i=>`<option value=${i} ${(s.adow||4)==i?'selected':''}>${i<7?'Thứ '+(i+1):'Chủ nhật'}</option>`).join('')}</select></label>${n(['ahr','Hạn đăng ký (giờ, 0–23)'],s.ahr==null?20:s.ahr)}<label>Tự Publish nếu không có lỗi nghiêm trọng<select onchange="setSet('apub',+this.value)"><option value=1 ${s.apub===0?'':'selected'}>Có</option><option value=0 ${s.apub===0?'selected':''}>Không (chỉ xếp, bạn Publish)</option></select></label></div><div class=acts style="margin-top:10px"><button class=b onclick=applyDm()>Áp Daily Max mặc định cho tất cả shipper</button></div></div>${regCard()}
+ return hdr('Cấu hình')+`<div class=card><h3>General</h3><div class=fg style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">${n(['wt','Weekly Target mặc định'],s.wt)}${n(['dm','Daily Max mặc định'],s.dm)}${n(['wm','Weekly Max mặc định (trống = Unlimited)'],s.wm)}<label>Cho phép Override<select onchange="setSet('allow',this.value=='1')"><option value=1 ${s.allow?'selected':''}>ON</option><option value=0 ${s.allow?'':'selected'}>OFF</option></select></label>${n(['gc','Gom ca: tối đa người/ngày (0 = tắt cảnh báo)'],s.gc)}${n(['rate','Đơn giá mỗi ca (đ)'],s.rate)}${n(['rateB','Đơn giá backup không đi (đ)'],s.rateB)}${n(['late','Mốc nghỉ gấp (giờ trước ca)'],s.late)}<label>Tự động xếp lịch tuần sau<select onchange="setSet('auto',+this.value)"><option value=0 ${s.auto?'':'selected'}>Tắt</option><option value=1 ${s.auto?'selected':''}>Bật</option></select></label><label>Công bố lịch tuần sau (ngày)<select onchange="setSet('adow',+this.value)">${[1,2,3,4,5,6,7].map(i=>`<option value=${i} ${(s.adow||6)==i?'selected':''}>${i<7?'Thứ '+(i+1):'Chủ nhật'}</option>`).join('')}</select></label>${n(['ahr','Công bố lịch (giờ, 0–23)'],s.ahr==null?0:s.ahr)}<label>Tự Publish nếu không có lỗi nghiêm trọng<select onchange="setSet('apub',+this.value)"><option value=1 ${s.apub===0?'':'selected'}>Có</option><option value=0 ${s.apub===0?'selected':''}>Không (chỉ xếp, bạn Publish)</option></select></label><label>Xếp theo buổi (11h+12h, 18h+19h)<select onchange="setSet('blk',+this.value)"><option value=1 ${s.blk===0?'':'selected'}>Bật — cùng người cho cả buổi</option><option value=0 ${s.blk===0?'selected':''}>Tắt — xếp từng ca</option></select></label><label>Thay đổi của shipper từ thứ 2 của tuần làm việc<select onchange="setSet('frz',+this.value)"><option value=1 ${s.frz===0?'':'selected'}>Cần tôi duyệt (khuyến nghị)</option><option value=0 ${s.frz===0?'selected':''}>Tự áp dụng, chỉ báo cho tôi</option></select></label></div><div class=acts style="margin-top:10px"><button class=b onclick=applyDm()>Áp Daily Max mặc định cho tất cả shipper</button></div></div>${regCard()}${vipCard()}
  <div class=card><h3>Shifts</h3><table><tr><th>Tên ca<th>Order cutoff<th>Delivery start<th>Delivery end<th>Required<th>Backup<th>Đơn giá ca (trống = mặc định)<th></tr>${S.shifts.map(c=>`<tr style="${c.active?'':'opacity:.5'}"><td>${si(c.id,'name',c.name)}<td>${si(c.id,'orderCutoff',c.orderCutoff,'time')}<td>${si(c.id,'deliveryStart',c.deliveryStart,'time')}<td>${si(c.id,'deliveryEnd',c.deliveryEnd,'time')}<td>${si(c.id,'requiredShippers',c.requiredShippers,'number')}<td>${si(c.id,'backupCount',c.backupCount==null?1:c.backupCount,'number')}<td>${si(c.id,'rate',c.rate==null?'':c.rate,'number')}<td><button class=b onclick="togShift('${c.id}')">${c.active?'Deactivate':'Activate'}</button>`).join('')}</table><div class=acts style="margin-top:10px"><button class="b pr" onclick=addShift()>+ Thêm ca</button></div><p class=sm>Required = số shipper chính mỗi ca (có thể 2 hoặc nhiều hơn). Backup = số người dự phòng mỗi ca (0 = không có; số lớn như 99 = tất cả người còn rảnh). Staffing chỉ dựa vào "Required". Số order/capacity (20/20, 50/50…) không được dùng để tính nhân sự.</p></div>
  <div class=card><h3>Dữ liệu</h3><div class=acts>${fsBtns()}<button class=b onclick=cloudSetup()>☁️ Đồng bộ đa thiết bị</button><button class=b onclick=spLink()>🔗 Link cho shipper</button><button class=b onclick="$('#imp').click()">⬆ Import JSON</button><button class=b onclick=resetDemo()>Reset Demo Data</button><button class="b dg" onclick=clearAll()>Clear All Data</button></div></div>`}
 
 const mob=()=>meta.mob===undefined?innerWidth<=820:!!meta.mob,togMob=()=>{meta.mob=!mob();saveMeta();render()};
 function render(){document.body.classList.toggle('mob',mob());ensureAv(ui.week);const V={dash:['Tổng quan',vDash],ship:['Shipper',vShip],avail:['Lịch rảnh',vAvail],sched:['Xếp lịch',vSched],bld:['Tòa nhà',vBld],pay:['Lương',vPay],cfg:['Cấu hình',vCfg]},ic={dash:'📊',ship:'🛵',avail:'🗓️',sched:'🤖',bld:'🏢',pay:'💰',cfg:'⚙️'};
  $('#nav').innerHTML=Object.keys(V).map(k=>`<a class="${ui.view==k?'on':''}" onclick="go('${k}')"><span class=ic>${ic[k]}</span><b>${V[k][0]}</b></a>`).join('');
- $('#main').innerHTML='<div class=vt><button class=b onclick=togMob()>'+(mob()?'🖥️ Giao diện máy tính':'📱 Giao diện điện thoại')+'</button></div><div id=bn>'+barInner()+'</div>'+noticeBar()+V[ui.view][1]()}
+ $('#main').innerHTML='<div class=vt><button class=b onclick=togMob()>'+(mob()?'🖥️ Giao diện máy tính':'📱 Giao diện điện thoại')+'</button></div><div id=bn>'+barInner()+'</div>'+pendBar()+noticeBar()+V[ui.view][1]()}
 addEventListener('resize',()=>{if(meta.mob===undefined&&mob()!=document.body.classList.contains('mob'))render()});
 load();save();render();initFile();cloudInit();
 </script></body></html>
